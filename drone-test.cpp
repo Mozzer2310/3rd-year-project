@@ -23,7 +23,7 @@ int height = 240; // height of image
 int startCounter = 1; // 0 for flight 1 for testing
 
 int main(){
-    std::cout << "test" << std::endl;
+    std::cout << CV_MAJOR_VERSION << "." << CV_MINOR_VERSION << std::endl;
     Tello tello{};
     if (!tello.Bind())
     {
