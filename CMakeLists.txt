@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0.0)
 project( 3rdYearProject )
+set(CMAKE_CXX_STANDARD 17)
 find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 add_executable( drone-test drone-test.cpp )
