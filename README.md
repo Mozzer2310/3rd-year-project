@@ -1,5 +1,5 @@
 # 3rd-year-project
-Drone object tracking using a RYZE Tello drone, and OpenCV in C++.
+An Object Detection and Tracking System for Drone Navigation using a RYZE Tello drone, and OpenCV in C++.
 
 ## Requirements
 - CTello - Available at: https://github.com/carlospzlz/ctello
