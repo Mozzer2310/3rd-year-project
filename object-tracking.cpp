@@ -17,9 +17,9 @@ cv::Point origin;
 cv::Rect selection;
 
 // User draws box around object to track. This triggers tracker to start tracking
-static void onMouse( int event, int x, int y, int, void* )
+static void onMouse(int event, int x, int y, int, void *)
 {
-    if( selectObject )
+    if (selectObject)
     {
         selection.x = MIN(x, origin.x);
         selection.y = MIN(y, origin.y);
@@ -29,17 +29,17 @@ static void onMouse( int event, int x, int y, int, void* )
         selection &= cv::Rect(0, 0, image.cols, image.rows);
     }
 
-    switch( event )
+    switch (event)
     {
     case cv::EVENT_LBUTTONDOWN:
-        origin = cv::Point(x,y);
-        selection = cv::Rect(x,y,0,0);
+        origin = cv::Point(x, y);
+        selection = cv::Rect(x, y, 0, 0);
         selectObject = true;
         break;
     case cv::EVENT_LBUTTONUP:
         selectObject = false;
-        if( selection.width > 0 && selection.height > 0 )
-            trackObject = -1;   // Set up tracker properties in main() loop
+        if (selection.width > 0 && selection.height > 0)
+            trackObject = -1; // Set up tracker properties in main() loop
         break;
     }
 }
@@ -62,8 +62,8 @@ int main(int argc, char **argv)
 
     // perform the tracking process
     printf("Start the tracking process, press ESC to quit.\n");
-    namedWindow( "tracker", WINDOW_AUTOSIZE );
-    setMouseCallback( "tracker", onMouse, 0 );
+    namedWindow("tracker", WINDOW_AUTOSIZE);
+    setMouseCallback("tracker", onMouse, 0);
     for (;;)
     {
         // get frame from the video
@@ -75,16 +75,17 @@ int main(int argc, char **argv)
         frame.copyTo(image);
 
         // If new object is chosen update roi and initialise tracker
-        if( trackObject < 0 )
-            {
-                roi = selection;
-                // initialize the tracker
-                tracker->init(image, roi);
-                trackObject = 1; // Don't set up again, unless user selects new ROI
-            }
+        if (trackObject < 0)
+        {
+            roi = selection;
+            // initialize the tracker
+            tracker->init(image, roi);
+            trackObject = 1; // Don't set up again, unless user selects new ROI
+        }
 
         // Update tracking if roi is selected
-        if (roi.width > 0 && roi.height > 0){
+        if (roi.width > 0 && roi.height > 0)
+        {
             // update the tracking result
             tracker->update(image, roi);
             // draw the tracked object
@@ -92,7 +93,7 @@ int main(int argc, char **argv)
         }
 
         // Invert colours in the selection area
-        if( selectObject && selection.width > 0 && selection.height > 0 )
+        if (selectObject && selection.width > 0 && selection.height > 0)
         {
             cv::Mat roi(image, selection);
             bitwise_not(roi, roi);
