@@ -16,6 +16,19 @@ cmake --build .
 ```
 
 ### OpenCV Code
+In order to compile the files containing the OpenCV library, such as those in the `test-code` folder, use the following options:
+
+Compile using the script provided:
 ```
-g++ m.cpp -o app `pkg-config --cflags --libs opencv`
+./opencv-compile IN-FILE.cpp OUT-file
+```
+OR
+```
+bash opencv-compile IN-FILE.cpp OUT-file
+```
+OR
+
+Compile yourself using the command below or however you would compile an openCV cpp file.
+```
+g++ m.cpp -o app `pkg-config --cflags --libs opencv4`
 ```
