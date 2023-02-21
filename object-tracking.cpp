@@ -103,7 +103,9 @@ int main(int argc, char **argv)
         imshow("tracker", image);
         // quit on ESC button
         if (waitKey(1) == 27)
+        {
             break;
+        }
     }
     return 0;
 }
