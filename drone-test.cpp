@@ -104,6 +104,8 @@ int main()
 
         frame.copyTo(image);
 
+        // TODO: 
+        // take-off of drone and hover (do nothing else) until roi selected
         // Do some flight
         // if (startCounter == 0){
         //     tello.SendCommand("takeoff");
@@ -137,6 +139,8 @@ int main()
             tracker->update(image, roi);
             // draw the tracked object
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
+            // TODO: 
+            // movement of the drone based off where the roi is in the image
         }
 
         // Invert colours in the selection area
