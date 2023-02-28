@@ -6,6 +6,7 @@
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/tracking.hpp>
+#include <opencv2/tracking/tracking_legacy.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 
@@ -83,13 +84,16 @@ int main()
     cv::Rect roi; // Region of Interest
     cv::Mat frame;
     // create a tracker object
-    // Ptr<Tracker> tracker = TrackerKCF::create();
+    // Ptr<Tracker> tracker = TrackerKCF::create(); // doesn't scale
     // Ptr<Tracker> tracker = TrackerMIL::create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerMedianFlow::create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerMOSSE:create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerTLD:create();
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
     // perform the tracking process
     printf("Start the tracking process, press ESC to quit.\n");
-    namedWindow("tracker", WINDOW_AUTOSIZE);
-    setMouseCallback("tracker", onMouse, 0);
+    namedWindow("CTello Stream", WINDOW_AUTOSIZE);
+    setMouseCallback("CTello Stream", onMouse, 0);
 
     while (true)
     {
@@ -137,8 +141,13 @@ int main()
         {
             // update the tracking result
             tracker->update(image, roi);
+
+            // get centre of roi
+            Point centre = (roi.br() + roi.tl()) / 2;
+
             // draw the tracked object
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
+            circle(image, centre, 3, cv::Scalar(255, 0, 0));
             // TODO: 
             // movement of the drone based off where the roi is in the image
         }
@@ -152,8 +161,8 @@ int main()
 
         // Display image
         cv::Mat resize_image;
-        cv::resize(image, resize_image, cv::Size(width, height));
-        cv::imshow("CTello Stream", resize_image);
+        // cv::resize(image, resize_image, cv::Size(width, height));
+        cv::imshow("CTello Stream", image);
         // quit on ESC button
         if (waitKey(1) == 27)
         {
