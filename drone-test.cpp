@@ -16,9 +16,9 @@ using namespace std;
 using namespace cv;
 using namespace ctello;
 
-int width = 320;      // width of image
-int height = 240;     // height of image
-int startCounter = 1; // 0 for flight 1 for testing
+// The frame size is 960x720, assum drone is at centre
+const cv::Point2i DRONE_POSITION(480, 360);
+bool doFlight = false; // 0 for flight 1 for testing
 
 // Code for selecting object to track
 cv::Mat image;
@@ -68,7 +68,8 @@ int main()
     // Get battery level and display it
     std::optional<std::string> response;
     tello.SendCommand("battery?");
-    while (!(response = tello.ReceiveResponse()));
+    while (!(response = tello.ReceiveResponse()))
+        ;
     std::cout << "Battery Level: " << *response << std::endl;
 
     // Get video feed from tello
@@ -83,6 +84,14 @@ int main()
 
     cv::Rect roi; // Region of Interest
     cv::Mat frame;
+
+    cap >> frame;
+    // Get width and height
+    int width = frame.cols;
+    int height = frame.rows;
+    cout << "Image Width: " << width << endl;
+    cout << "Image Height: " << height << endl;
+
     // create a tracker object
     // Ptr<Tracker> tracker = TrackerKCF::create(); // doesn't scale
     // Ptr<Tracker> tracker = TrackerMIL::create();
@@ -90,11 +99,21 @@ int main()
     // Ptr<Tracker> tracker = cv::legacy::TrackerMOSSE:create();
     // Ptr<Tracker> tracker = cv::legacy::TrackerTLD:create();
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
+
     // perform the tracking process
-    printf("Start the tracking process, press ESC to quit.\n");
+    printf("To start the tracking process draw box around ROI, press ESC to quit.\n");
     namedWindow("CTello Stream", WINDOW_AUTOSIZE);
     setMouseCallback("CTello Stream", onMouse, 0);
 
+    if (doFlight)
+    {
+        tello.SendCommand("takeoff");
+        while (!(tello.ReceiveResponse()))
+            ;
+    }
+
+
+    bool busy = false;
     while (true)
     {
 
@@ -108,7 +127,14 @@ int main()
 
         frame.copyTo(image);
 
-        // TODO: 
+        // Listen response
+        if (const auto response = tello.ReceiveResponse())
+        {
+            std::cout << "Tello: " << *response << std::endl;
+            busy = false;
+        }
+
+        // TODO:
         // take-off of drone and hover (do nothing else) until roi selected
         // Do some flight
         // if (startCounter == 0){
@@ -148,8 +174,41 @@ int main()
             // draw the tracked object
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
             circle(image, centre, 3, cv::Scalar(255, 0, 0));
-            // TODO: 
+
+            // draw lines
+            if (true)
+            {
+                // Vertical lines
+                line(image, cv::Point(width / 3, 0), cv::Point(width / 3, height), cv::Scalar(255, 0, 0), 1);
+                line(image, cv::Point(2 * width / 3, 0), cv::Point(2 * width / 3, height), cv::Scalar(255, 0, 0), 1);
+                // Horizontal lines
+                line(image, cv::Point(0, height / 3), cv::Point(width, height / 3), cv::Scalar(255, 0, 0), 1);
+                line(image, cv::Point(0, 2 * height / 3), cv::Point(width, 2 * height / 3), cv::Scalar(255, 0, 0), 1);
+            }
+
+            // Left-right check
+            if (centre.x < width / 3)
+            {
+                cout << "LEFT" << endl;
+            }
+            else if (centre.x > 2 * width / 3)
+            {
+                cout << "RIGHT" << endl;
+            }
+
+            // up-down check
+            if (centre.y < height / 3)
+            {
+                cout << "UP" << endl;
+            }
+            else if (centre.y > 2 * height / 3)
+            {
+                cout << "DOWN" << endl;
+            }
+
+            // TODO:
             // movement of the drone based off where the roi is in the image
+            // look at follow.cpp in ctello GitHub
         }
 
         // Invert colours in the selection area
@@ -166,6 +225,12 @@ int main()
         // quit on ESC button
         if (waitKey(1) == 27)
         {
+            if (doFlight)
+            {
+                tello.SendCommand("land");
+                while (!(tello.ReceiveResponse()))
+                    ;
+            }
             break;
         }
     }

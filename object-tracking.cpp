@@ -1,6 +1,7 @@
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/tracking.hpp>
+#include <opencv2/tracking/tracking_legacy.hpp>
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 #include <iostream>
@@ -55,10 +56,24 @@ int main(int argc, char **argv)
 
     cv::Rect roi; // Region of Interest
     cv::Mat frame;
+    cap >> frame;
+
+    // Get width and height
+    int width = frame.cols;
+    int height = frame.rows;
+    cout << "Image Width: " << width/3 << endl;
+    cout << "Image Height: " << height/3 << endl;
+
     // create a tracker object
     // Ptr<Tracker> tracker = TrackerKCF::create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerMedianFlow::create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerMedianFlow::create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerMOSSE:create();
+    // Ptr<Tracker> tracker = cv::legacy::Tracker:create();
+    // Ptr<Tracker> tracker = cv::legacy::TrackerTLD:create();
     // Ptr<Tracker> tracker = TrackerMIL::create();
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
+    // cv::Ptr<cv::Tracker> tracker = cv::TrackerDaSiamRPN::create(); // 
 
     // perform the tracking process
     printf("Start the tracking process, press ESC to quit.\n");
@@ -87,9 +102,46 @@ int main(int argc, char **argv)
         if (roi.width > 0 && roi.height > 0)
         {
             // update the tracking result
-            tracker->update(image, roi);
+            if (tracker->update(image, roi)){
+
+            } else {
+                cout << "Failed to track" << endl;
+            }
+            // tracker->update(image, roi);
+
+            // get centre of roi
+            Point centre = (roi.br() + roi.tl()) / 2;
+
             // draw the tracked object
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
+            circle(image, centre, 3, cv::Scalar(255, 0, 0), -1);
+
+            // draw lines
+            if (true){
+                // Vertical lines
+                line(image, cv::Point(width/3, 0), cv::Point(width/3, height), cv::Scalar(255, 0, 0), 1);
+                line(image, cv::Point(2*width/3, 0), cv::Point(2*width/3, height), cv::Scalar(255, 0, 0), 1);
+                // Horizontal lines
+                line(image, cv::Point(0, height/3), cv::Point(width, height/3), cv::Scalar(255, 0, 0), 1);
+                line(image, cv::Point(0, 2*height/3), cv::Point(width, 2*height/3), cv::Scalar(255, 0, 0), 1);
+            }
+
+            // Left-right check
+            if (centre.x < width/3){
+                cout << "LEFT" << endl;
+            } else if (centre.x > 2*width/3)
+            {
+                cout << "RIGHT" << endl;
+            }
+
+            // up-down check
+            if (centre.y < height/3){
+                cout << "UP" << endl;
+            } else if (centre.y > 2*height/3)
+            {
+                cout << "DOWN" << endl;
+            }
+            
         }
 
         // Invert colours in the selection area
