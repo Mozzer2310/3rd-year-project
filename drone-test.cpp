@@ -112,7 +112,6 @@ int main()
             ;
     }
 
-
     bool busy = false;
     while (true)
     {
@@ -168,6 +167,14 @@ int main()
             // update the tracking result
             tracker->update(image, roi);
 
+            // TODO:
+            // Scaling of roi based on previous roi(s), using interpolation
+            // - If there is a large change we wouldn't really expect that so this becomes smaller
+            // - Hopefully improve performance for less accurately tracked objects
+            // - Smooth variations in bounding box
+            // Notes:
+            // Scaling seems good with object with unique colour and shape, i.e. mclaren hat
+
             // get centre of roi
             Point centre = (roi.br() + roi.tl()) / 2;
 
@@ -175,6 +182,8 @@ int main()
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
             circle(image, centre, 3, cv::Scalar(255, 0, 0));
 
+            // ###############################################
+            // Maybe remove for different solution
             // draw lines
             if (true)
             {
@@ -205,10 +214,29 @@ int main()
             {
                 cout << "DOWN" << endl;
             }
+            // ###############################################
 
             // TODO:
             // movement of the drone based off where the roi is in the image
-            // look at follow.cpp in ctello GitHub
+            // Planar movement
+            // - Consider drone at centre point (DRONE_POSITION)
+            // - Calculate pixel difference horizontally and vertically
+            //      - Using trig? maths
+            // - Move drone accorindingly (+/- horizontal and vertical)
+            //      - Min difference in order to move (testing with drone)
+            // Notes:
+            // - look at follow.cpp in ctello GitHub for similar
+            // - Set a cm value based on number of pixels (use follow.cpp for base value)
+
+            // TODO:
+            // Forwards/backwards movement
+            // - Drone wants to keep ROI roughly the same size
+            // - Base size will be initial size defined +/- padding, to account for small variations
+            // - Move drone backwards if ROI gets larger
+            // - Move drone forwards if ROI gets smaller
+            // Notes:
+            // - Set a cm value based on scaling factor difference
+            // - Will need min value to move from so drone isn't jittery
         }
 
         // Invert colours in the selection area
