@@ -12,7 +12,7 @@ An Object Detection and Tracking System for Drone Navigation using a RYZE Tello 
 mkdir build && cd build
 cmake ..
 cmake --build .
-./drone-test
+./tracking-drone
 ```
 
 ### OpenCV Code
