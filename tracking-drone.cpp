@@ -16,8 +16,15 @@ using namespace std;
 using namespace cv;
 using namespace ctello;
 
-// The frame size is 960x720, assum drone is at centre
+// The frame size is 960x720, assume drone is at centre
 const cv::Point2i DRONE_POSITION(480, 360);
+// amount of centimeters to move per pixel
+const float CM_PER_PIXEL = 0.3;
+// minimum centimeters the drone can move, defined in tello SDK
+const int MIN_STEP = 20;
+// maximum centimeters the drone can move
+const int MAX_STEP = 20;
+
 bool doFlight = false; // 0 for flight 1 for testing
 
 // Code for selecting object to track
@@ -25,7 +32,7 @@ cv::Mat image;
 
 bool selectObject = false;
 int trackObject = 0;
-cv::Point origin;
+cv::Point2i origin;
 cv::Rect selection;
 
 // User draws box around object to track. This triggers tracker to start tracking
@@ -56,21 +63,52 @@ static void onMouse(int event, int x, int y, int, void *)
     }
 }
 
+// TODO: function
+// movement of the drone based off where the roi is in the image
+std::string Steer(const Point2i &origin,
+                  const Point2i &target,
+                  const float cm_per_pixel,
+                  const int min_step,
+                  const int max_step)
+{
+    std::string command;
+    const Point2i velocity{target - origin};
+    if (abs(velocity.x) > abs(velocity.y))
+    {
+        auto step = static_cast<int>(velocity.x * cm_per_pixel);
+        step = std::max(std::min(step, max_step), min_step);
+        if (velocity.x > 0)
+        {
+            command = "right " + std::to_string(step);
+        }
+        else
+        {
+            command = "left " + std::to_string(step);
+        }
+    }
+    else
+    {
+        auto step = static_cast<int>(velocity.y * cm_per_pixel);
+        step = std::max(std::min(step, max_step), min_step);
+        if (velocity.y < 0)
+        {
+            command = "up " + std::to_string(step);
+        }
+        else
+        {
+            command = "down " + std::to_string(step);
+        }
+    }
+    return command;
+}
+
 int main()
 {
-    std::cout << CV_MAJOR_VERSION << "." << CV_MINOR_VERSION << std::endl;
     ctello::Tello tello{};
     if (!tello.Bind())
     {
         return 0;
     }
-
-    // Get battery level and display it
-    std::optional<std::string> response;
-    tello.SendCommand("battery?");
-    while (!(response = tello.ReceiveResponse()))
-        ;
-    std::cout << "Battery Level: " << *response << std::endl;
 
     // Get video feed from tello
     tello.SendCommand("streamon");
@@ -80,6 +118,7 @@ int main()
     if (!cap.isOpened())
     {
         cout << "cannot open camera";
+        return 0;
     }
 
     cv::Rect roi; // Region of Interest
@@ -133,25 +172,6 @@ int main()
             busy = false;
         }
 
-        // TODO:
-        // take-off of drone and hover (do nothing else) until roi selected
-        // Do some flight
-        // if (startCounter == 0){
-        //     tello.SendCommand("takeoff");
-        //     while (!(tello.ReceiveResponse()));
-        //     sleep(5);
-        //     tello.SendCommand("cw 90");
-        //     while (!(tello.ReceiveResponse()));
-        //     sleep(5);
-        //     tello.SendCommand("left 20");
-        //     while (!(tello.ReceiveResponse()));
-        //     sleep(5);
-        //     tello.SendCommand("land");
-        //     while (!(tello.ReceiveResponse()));
-
-        //     startCounter = 1;
-        // }
-
         // If new object is chosen update roi and initialise tracker
         if (trackObject < 0)
         {
@@ -176,45 +196,11 @@ int main()
             // Scaling seems good with object with unique colour and shape, i.e. mclaren hat
 
             // get centre of roi
-            Point centre = (roi.br() + roi.tl()) / 2;
+            Point2i centre = (roi.br() + roi.tl()) / 2;
 
             // draw the tracked object
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
             circle(image, centre, 3, cv::Scalar(255, 0, 0));
-
-            // ###############################################
-            // Maybe remove for different solution
-            // draw lines
-            if (true)
-            {
-                // Vertical lines
-                line(image, cv::Point(width / 3, 0), cv::Point(width / 3, height), cv::Scalar(255, 0, 0), 1);
-                line(image, cv::Point(2 * width / 3, 0), cv::Point(2 * width / 3, height), cv::Scalar(255, 0, 0), 1);
-                // Horizontal lines
-                line(image, cv::Point(0, height / 3), cv::Point(width, height / 3), cv::Scalar(255, 0, 0), 1);
-                line(image, cv::Point(0, 2 * height / 3), cv::Point(width, 2 * height / 3), cv::Scalar(255, 0, 0), 1);
-            }
-
-            // Left-right check
-            if (centre.x < width / 3)
-            {
-                cout << "LEFT" << endl;
-            }
-            else if (centre.x > 2 * width / 3)
-            {
-                cout << "RIGHT" << endl;
-            }
-
-            // up-down check
-            if (centre.y < height / 3)
-            {
-                cout << "UP" << endl;
-            }
-            else if (centre.y > 2 * height / 3)
-            {
-                cout << "DOWN" << endl;
-            }
-            // ###############################################
 
             // TODO:
             // movement of the drone based off where the roi is in the image
@@ -227,6 +213,20 @@ int main()
             // Notes:
             // - look at follow.cpp in ctello GitHub for similar
             // - Set a cm value based on number of pixels (use follow.cpp for base value)
+            // - do movement of whichever is most different
+            const std::string command = Steer(DRONE_POSITION, centre, CM_PER_PIXEL, MIN_STEP, MAX_STEP);
+            if (!command.empty())
+            {
+                if (!busy)
+                {
+                    if (doFlight)
+                    {
+                        tello.SendCommand(command);
+                    }
+                    std::cout << "Command: " << command << std::endl;
+                    busy = true;
+                }
+            }
 
             // TODO:
             // Forwards/backwards movement
