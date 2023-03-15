@@ -73,7 +73,11 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
     if (abs(velocity.x) > abs(velocity.y))
     {
         auto step = abs(static_cast<int>(velocity.x * cm_per_pixel));
-        step = std::max(std::min(step, max_step), min_step);
+        if (step <= min_step)
+        {
+            return {"", velocity};
+        }
+        step = std::min(step, max_step);
         if (velocity.x > 0)
         {
             command = "right " + std::to_string(step);
@@ -86,7 +90,11 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
     else
     {
         auto step = abs(static_cast<int>(velocity.y * cm_per_pixel));
-        step = std::max(std::min(step, max_step), min_step);
+        if (step <= min_step)
+        {
+            return {"", velocity};
+        }
+        step = std::min(step, max_step);
         if (velocity.y < 0)
         {
             command = "up " + std::to_string(step);
