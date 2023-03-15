@@ -1,6 +1,6 @@
-#include <stdio.h>
-#include <unistd.h>
 #include <iostream>
+#include <algorithm>
+#include <optional>
 
 #include "ctello.h"
 #include <opencv2/core/utility.hpp>
@@ -23,7 +23,7 @@ const float CM_PER_PIXEL = 0.3;
 // minimum centimeters the drone can move, defined in tello SDK
 const int MIN_STEP = 20;
 // maximum centimeters the drone can move
-const int MAX_STEP = 20;
+const int MAX_STEP = 60;
 
 bool doFlight = false; // 0 for flight 1 for testing
 
@@ -63,19 +63,18 @@ static void onMouse(int event, int x, int y, int, void *)
     }
 }
 
-// TODO: function
 // movement of the drone based off where the roi is in the image
-std::string Steer(const Point2i &origin,
-                  const Point2i &target,
-                  const float cm_per_pixel,
-                  const int min_step,
-                  const int max_step)
+std::pair<std::string, Point2i> Steer(const Point2i &origin,
+                                      const Point2i &target,
+                                      const float cm_per_pixel,
+                                      const int min_step,
+                                      const int max_step)
 {
     std::string command;
     const Point2i velocity{target - origin};
     if (abs(velocity.x) > abs(velocity.y))
     {
-        auto step = static_cast<int>(velocity.x * cm_per_pixel);
+        auto step = abs(static_cast<int>(velocity.x * cm_per_pixel));
         step = std::max(std::min(step, max_step), min_step);
         if (velocity.x > 0)
         {
@@ -88,7 +87,7 @@ std::string Steer(const Point2i &origin,
     }
     else
     {
-        auto step = static_cast<int>(velocity.y * cm_per_pixel);
+        auto step = abs(static_cast<int>(velocity.y * cm_per_pixel));
         step = std::max(std::min(step, max_step), min_step);
         if (velocity.y < 0)
         {
@@ -99,7 +98,23 @@ std::string Steer(const Point2i &origin,
             command = "down " + std::to_string(step);
         }
     }
-    return command;
+    return {command, velocity};
+}
+
+void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
+{
+    const cv::Point2i x_pos(drone_pos.x + velocity.x, drone_pos.y);
+    const cv::Point2i y_pos(drone_pos.x, drone_pos.y + velocity.y);
+    if (abs(velocity.x) > abs(velocity.y))
+    {
+        cv::arrowedLine(image, drone_pos, x_pos, {0, 255, 0});
+        cv::arrowedLine(image, drone_pos, y_pos, {255, 0, 0});
+    }
+    else
+    {
+        cv::arrowedLine(image, drone_pos, x_pos, {255, 0, 0});
+        cv::arrowedLine(image, drone_pos, y_pos, {0, 255, 0});
+    }
 }
 
 int main()
@@ -214,7 +229,8 @@ int main()
             // - look at follow.cpp in ctello GitHub for similar
             // - Set a cm value based on number of pixels (use follow.cpp for base value)
             // - do movement of whichever is most different
-            const std::string command = Steer(DRONE_POSITION, centre, CM_PER_PIXEL, MIN_STEP, MAX_STEP);
+            const auto steer = Steer(DRONE_POSITION, centre, CM_PER_PIXEL, MIN_STEP, MAX_STEP);
+            const std::string command{steer.first};
             if (!command.empty())
             {
                 if (!busy)
@@ -226,6 +242,9 @@ int main()
                     std::cout << "Command: " << command << std::endl;
                     busy = true;
                 }
+
+                // draw velocity lines (green for selected red for not selected)
+                drawMovement(image, DRONE_POSITION, steer.second);
             }
 
             // TODO:
