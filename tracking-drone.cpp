@@ -108,11 +108,11 @@ void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
     if (abs(velocity.x) > abs(velocity.y))
     {
         cv::arrowedLine(image, drone_pos, x_pos, {0, 255, 0});
-        cv::arrowedLine(image, drone_pos, y_pos, {255, 0, 0});
+        cv::arrowedLine(image, drone_pos, y_pos, {0, 0, 255});
     }
     else
     {
-        cv::arrowedLine(image, drone_pos, x_pos, {255, 0, 0});
+        cv::arrowedLine(image, drone_pos, x_pos, {0, 0, 255});
         cv::arrowedLine(image, drone_pos, y_pos, {0, 255, 0});
     }
 }
