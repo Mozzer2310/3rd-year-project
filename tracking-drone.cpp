@@ -36,6 +36,9 @@ const float CM_PER_PIXEL = 0.3;
 const int MIN_STEP = 20;
 // Maximum centimeters the drone can move
 const int MAX_STEP = 60;
+// default output filenames
+const std::string CLEAN = "video-output/out.avi";
+const std::string DIRTY = "video-output/out_dirty.avi";
 
 /**
  * @brief User draws box around object to track. This triggers tracker to start tracking.
@@ -162,6 +165,42 @@ void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
     {
         cv::arrowedLine(image, drone_pos, x_pos, {0, 0, 255});
         cv::arrowedLine(image, drone_pos, y_pos, {0, 255, 0});
+    }
+}
+
+/**
+ * @brief Renames the output files to a user specified name.
+ *
+ * @param clean_default The default name for the clean output video file
+ * @param dirty_default The default name for the dirty output video file
+ */
+void renameOutputs(const std::string clean_default,
+                   const std::string dirty_default)
+{
+    std::string output_name;
+    std::cout << "\nSpecify output filename for video, if none specified then default will be used, this will overwrite anything saved to the same filename" << std::endl;
+    std::cout << "Output filename: ";
+    getline(std::cin, output_name);
+    if (!output_name.empty())
+    {
+        std::string clean_name = "video-output/" + output_name + ".avi";
+        std::string dirty_name = "video-output/" + output_name + "_dirty.avi";
+        if (rename(clean_default.c_str(), clean_name.c_str()) != 0)
+        {
+            std::cout << "Error moving file" << std::endl;
+        }
+        else
+        {
+            std::cout << "File saved successfully" << std::endl;
+        }
+        if (rename(dirty_default.c_str(), dirty_name.c_str()) != 0)
+        {
+            std::cout << "Error moving file" << std::endl;
+        }
+        else
+        {
+            std::cout << "File saved successfully" << std::endl;
+        }
     }
 }
 
@@ -339,12 +378,14 @@ int main()
         // Quit on ESC button
         if (waitKey(1) == 27)
         {
+            cv::destroyAllWindows();
             if (doFlight)
             {
                 tello.SendCommand("land");
                 while (!(tello.ReceiveResponse()))
                     ;
             }
+            renameOutputs(CLEAN, DIRTY);
             cap.release();
             clean_video.release();
             video.release();

@@ -34,6 +34,9 @@ const float CM_PER_PIXEL = 0.3;
 const int MIN_STEP = 20;
 // Maximum centimeters the drone can move
 const int MAX_STEP = 60;
+// default output filenames
+const std::string CLEAN = "video-output/out.avi";
+const std::string DIRTY = "video-output/out_dirty.avi";
 
 /**
  * @brief User draws box around object to track. This triggers tracker to start tracking.
@@ -161,13 +164,49 @@ void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
     }
 }
 
+/**
+ * @brief Renames the output files to a user specified name.
+ *
+ * @param clean_default The default name for the clean output video file
+ * @param dirty_default The default name for the dirty output video file
+ */
+void renameOutputs(const std::string clean_default,
+                   const std::string dirty_default)
+{
+    std::string output_name;
+    std::cout << "\nSpecify output filename for video, if none specified then default will be used, this will overwrite anything saved to the same filename" << std::endl;
+    std::cout << "Output filename: ";
+    getline(std::cin, output_name);
+    if (!output_name.empty())
+    {
+        std::string clean_name = "video-output/" + output_name + ".avi";
+        std::string dirty_name = "video-output/" + output_name + "_dirty.avi";
+        if (rename(clean_default.c_str(), clean_name.c_str()) != 0)
+        {
+            std::cout << "Error moving file" << std::endl;
+        }
+        else
+        {
+            std::cout << "File saved successfully" << std::endl;
+        }
+        if (rename(dirty_default.c_str(), dirty_name.c_str()) != 0)
+        {
+            std::cout << "Error moving file" << std::endl;
+        }
+        else
+        {
+            std::cout << "File saved successfully" << std::endl;
+        }
+    }
+}
+
 int main()
 {
     // Set input video
     cv::VideoCapture cap(0);
     if (!cap.isOpened())
     {
-        std::cout << "cannot open camera"  << std::endl;
+        std::cout << "cannot open camera" << std::endl;
     }
 
     cv::Rect roi; // Region of Interest
@@ -185,14 +224,14 @@ int main()
     /// Define the codec and video writer objects
     // `clean_video` - will save the original frame
     // `video` - will save the frame with bounding boxes and other items drawn, for evaluation
-    VideoWriter clean_video("video-output/clean_out.avi",
+    VideoWriter clean_video(CLEAN,
                             cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                             fps,
-                            cv::Size(width, height));
-    VideoWriter video("video-output/out.avi",
+                            cv::Size(960, 720));
+    VideoWriter video(DIRTY,
                       cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                       fps,
-                      cv::Size(width, height));
+                      cv::Size(960, 720));
 
     // create a tracker object
     // Ptr<Tracker> tracker = TrackerKCF::create(); // doesn't scale
@@ -204,7 +243,7 @@ int main()
 
     // Show information
     std::cout << "To start the tracking process draw box around ROI, press ESC to quit." << std::endl;
-    
+
     // Create window and mouse callback for ROI selection
     namedWindow("Video Stream", WINDOW_AUTOSIZE);
     setMouseCallback("Video Stream", onMouse, 0);
@@ -303,6 +342,8 @@ int main()
         // Quit on ESC button
         if (waitKey(1) == 27)
         {
+            cv::destroyAllWindows();
+            renameOutputs(CLEAN, DIRTY);
             cap.release();
             clean_video.release();
             video.release();
