@@ -11,7 +11,6 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 
-using namespace std;
 using namespace cv;
 
 // The frame size is 960x720, assume drone is at centre
@@ -129,7 +128,7 @@ int main()
     cv::VideoCapture cap(0);
     if (!cap.isOpened())
     {
-        cout << "cannot open camera"  << endl;
+        std::cout << "cannot open camera"  << std::endl;
     }
 
     cv::Rect roi; // Region of Interest
@@ -139,8 +138,8 @@ int main()
     // Get width and height
     int width = frame.cols;
     int height = frame.rows;
-    cout << "Image Width: " << width << endl;
-    cout << "Image Height: " << height << endl;
+    std::cout << "Image Width: " << width << std::endl;
+    std::cout << "Image Height: " << height << std::endl;
 
     // Output video
     double fps = cap.get(cv::CAP_PROP_FPS);
@@ -163,7 +162,7 @@ int main()
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
 
     // perform the tracking process
-    cout << "To start the tracking process draw box around ROI, press ESC to quit." << endl;
+    std::cout << "To start the tracking process draw box around ROI, press ESC to quit." << std::endl;
     namedWindow("Video Stream", WINDOW_AUTOSIZE);
     setMouseCallback("Video Stream", onMouse, 0);
 

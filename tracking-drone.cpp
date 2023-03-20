@@ -12,7 +12,6 @@
 
 const char *const TELLO_STREAM_URL{"udp://0.0.0.0:11111"};
 
-using namespace std;
 using namespace cv;
 using namespace ctello;
 
@@ -140,7 +139,7 @@ int main()
     VideoCapture cap{TELLO_STREAM_URL, CAP_FFMPEG};
     if (!cap.isOpened())
     {   
-        cout << "cannot open camera" << endl;
+        std::cout << "cannot open camera" << std::endl;
         return 0;
     }
 
@@ -151,8 +150,8 @@ int main()
     // Get width and height
     int width = frame.cols;
     int height = frame.rows;
-    cout << "Image Width: " << width << endl;
-    cout << "Image Height: " << height << endl;
+    std::cout << "Image Width: " << width << std::endl;
+    std::cout << "Image Height: " << height << std::endl;
 
     // Output video
     double fps = cap.get(cv::CAP_PROP_FPS);
@@ -174,7 +173,7 @@ int main()
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
 
     // perform the tracking process
-    cout << "To start the tracking process draw box around ROI, press ESC to quit." << endl;
+    std::cout << "To start the tracking process draw box around ROI, press ESC to quit." << std::endl;
     namedWindow("CTello Stream", WINDOW_AUTOSIZE);
     setMouseCallback("CTello Stream", onMouse, 0);
 
