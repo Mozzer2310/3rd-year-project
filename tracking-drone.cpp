@@ -15,26 +15,35 @@ const char *const TELLO_STREAM_URL{"udp://0.0.0.0:11111"};
 using namespace cv;
 using namespace ctello;
 
-// The frame size is 960x720, assume drone is at centre
-const cv::Point2i DRONE_POSITION(480, 360);
-// amount of centimeters to move per pixel
-const float CM_PER_PIXEL = 0.3;
-// minimum centimeters the drone can move, defined in tello SDK
-const int MIN_STEP = 20;
-// maximum centimeters the drone can move
-const int MAX_STEP = 60;
+// Variable instantiation
 
-bool doFlight = false; // 0 for flight 1 for testing
+// 0 for flight 1 for testing
+bool doFlight = false;
 
-// Code for selecting object to track
-cv::Mat image;
-
+// Used in drawing the ROI around the object
 bool selectObject = false;
+// Used to start object tracking or select new ROI
 int trackObject = 0;
+
+cv::Mat image;
 cv::Point2i origin;
 cv::Rect selection;
+// The frame size is 960x720, assume drone is at centre
+const cv::Point2i DRONE_POSITION(480, 360);
+// Amount of centimeters to move per pixel
+const float CM_PER_PIXEL = 0.3;
+// Minimum centimeters the drone can move, defined in tello SDK
+const int MIN_STEP = 20;
+// Maximum centimeters the drone can move
+const int MAX_STEP = 60;
 
-// User draws box around object to track. This triggers tracker to start tracking
+/**
+ * @brief User draws box around object to track. This triggers tracker to start tracking.
+ *
+ * @param   event   The event to decide what action to take
+ * @param   x       The x coordinate
+ * @param   y       The y coordinate
+ */
 static void onMouse(int event, int x, int y, int, void *)
 {
     if (selectObject)
@@ -57,12 +66,24 @@ static void onMouse(int event, int x, int y, int, void *)
     case cv::EVENT_LBUTTONUP:
         selectObject = false;
         if (selection.width > 0 && selection.height > 0)
-            trackObject = -1; // Set up tracker properties in main() loop
+        {
+            // Set up tracker properties in main() loop
+            trackObject = -1;
+        }
         break;
     }
 }
 
-// movement of the drone based off where the roi is in the image
+/**
+ * @brief Generates a command as a string based off the drone position and the centre of the ROI around the object being tracked.
+ *
+ * @param   origin          The position of the drone
+ * @param   target          The centre of the ROI around the object being tracked
+ * @param   cm_per_pixel    The number of cms to move per pixel
+ * @param   min_step        The minimum number of cms the drone can move
+ * @param   max_step        The maximum number of cms the drone can move
+ * @return                  A pair containing the `command` as a string and the `velocity` as a point
+ */
 std::pair<std::string, Point2i> Steer(const Point2i &origin,
                                       const Point2i &target,
                                       const float cm_per_pixel,
@@ -71,14 +92,18 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
 {
     std::string command;
     const Point2i velocity{target - origin};
+    // Horizontal difference larger than vertical difference
     if (abs(velocity.x) > abs(velocity.y))
     {
-        auto step = abs(static_cast<int>(velocity.x * cm_per_pixel));
+        // Convert pixel velocity to cm velocity and absolute the value
+        int step = abs(static_cast<int>(velocity.x * cm_per_pixel));
         if (step <= min_step)
         {
+            // Return an empty command if movement is less than minimum step
             return {"", velocity};
         }
         step = std::min(step, max_step);
+        // Return right or left depending on sign of velocity
         if (velocity.x > 0)
         {
             command = "right " + std::to_string(step);
@@ -90,12 +115,15 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
     }
     else
     {
-        auto step = abs(static_cast<int>(velocity.y * cm_per_pixel));
+        // Convert pixel velocity to cm velocity and absolute the value
+        int step = abs(static_cast<int>(velocity.y * cm_per_pixel));
         if (step <= min_step)
         {
+            // Return an empty command if movement is less than minimum step
             return {"", velocity};
         }
         step = std::min(step, max_step);
+        // Return up or down depending on sign of velocity
         if (velocity.y < 0)
         {
             command = "up " + std::to_string(step);
@@ -108,10 +136,23 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
     return {command, velocity};
 }
 
+/**
+ * Draws arrows to represent the movement of the drone.
+ * Green arrow is the movement the drone is making,
+ * the red arrow is movement the drone is not making.
+ *
+ * @param   image       The current image
+ * @param   drone_pos   The position of the drone
+ * @param   velocity    The movement needed for drone_pos to match the object's position
+ */
 void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
 {
+    // Define two points for the horizontal and vertical velocity values
     const cv::Point2i x_pos(drone_pos.x + velocity.x, drone_pos.y);
     const cv::Point2i y_pos(drone_pos.x, drone_pos.y + velocity.y);
+    /// Draw the arrows, colour depends on which value is larger
+    // Green for larger (movement drone has selected)
+    // Red for smaller (movement not selected)
     if (abs(velocity.x) > abs(velocity.y))
     {
         cv::arrowedLine(image, drone_pos, x_pos, {0, 255, 0});
@@ -126,19 +167,20 @@ void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
 
 int main()
 {
+    // Instantiate tello object and bind to connected drone
     ctello::Tello tello{};
     if (!tello.Bind())
     {
         return 0;
     }
 
-    // Get video feed from tello
+    // Get video feed from tello drone
     tello.SendCommand("streamon");
     while (!(tello.ReceiveResponse()))
         ;
     VideoCapture cap{TELLO_STREAM_URL, CAP_FFMPEG};
     if (!cap.isOpened())
-    {   
+    {
         std::cout << "cannot open camera" << std::endl;
         return 0;
     }
@@ -146,8 +188,8 @@ int main()
     cv::Rect roi; // Region of Interest
     cv::Mat frame;
 
+    // Get the first frame in order to determine width and height of image
     cap >> frame;
-    // Get width and height
     int width = frame.cols;
     int height = frame.rows;
     std::cout << "Image Width: " << width << std::endl;
@@ -155,6 +197,9 @@ int main()
 
     // Output video
     double fps = cap.get(cv::CAP_PROP_FPS);
+    /// Define the codec and video writer objects
+    // `clean_video` - will save the original frame
+    // `video` - will save the frame with bounding boxes and other items drawn, for evaluation
     VideoWriter clean_video("video-output/clean_out.avi",
                             cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                             fps,
@@ -172,8 +217,10 @@ int main()
     // Ptr<Tracker> tracker = cv::legacy::TrackerTLD:create();
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
 
-    // perform the tracking process
+    // Show information
     std::cout << "To start the tracking process draw box around ROI, press ESC to quit." << std::endl;
+
+    // Create window and mouse callback for ROI selection
     namedWindow("CTello Stream", WINDOW_AUTOSIZE);
     setMouseCallback("CTello Stream", onMouse, 0);
 
@@ -187,18 +234,18 @@ int main()
     bool busy = false;
     while (true)
     {
-
-        // get frame from the video
+        // Get frame from the video
         cap >> frame;
-        // stop the program if no more images
+        // Stop the program if no more images
         if (frame.empty())
         {
             break;
         }
 
+        // Copy frame so it isn't edited
         frame.copyTo(image);
 
-        // Listen response
+        // Listen for drone response, the drone can only move once it has completed its previous command
         if (const auto response = tello.ReceiveResponse())
         {
             std::cout << "Tello: " << *response << std::endl;
@@ -228,26 +275,20 @@ int main()
             // Notes:
             // Scaling seems good with object with unique colour and shape, i.e. mclaren hat
 
-            // get centre of roi
-            Point2i centre = (roi.br() + roi.tl()) / 2;
+            // Get centre of roi
+            Point2i object_centre = (roi.br() + roi.tl()) / 2;
 
-            // draw the tracked object
+            // Draw the tracked object
             rectangle(image, roi, cv::Scalar(255, 0, 0), 2, 1);
-            circle(image, centre, 3, cv::Scalar(255, 0, 0));
+            circle(image, object_centre, 3, cv::Scalar(255, 0, 0));
 
-            // TODO:
-            // movement of the drone based off where the roi is in the image
-            // Planar movement
-            // - Consider drone at centre point (DRONE_POSITION)
-            // - Calculate pixel difference horizontally and vertically
-            //      - Using trig? maths
-            // - Move drone accorindingly (+/- horizontal and vertical)
-            //      - Min difference in order to move (testing with drone)
-            // Notes:
-            // - look at follow.cpp in ctello GitHub for similar
-            // - Set a cm value based on number of pixels (use follow.cpp for base value)
-            // - do movement of whichever is most different
-            const auto steer = Steer(DRONE_POSITION, centre, CM_PER_PIXEL, MIN_STEP, MAX_STEP);
+            // Call Steer and store the returned pair object {command, velocity}
+            const auto steer = Steer(DRONE_POSITION,
+                                     object_centre,
+                                     CM_PER_PIXEL,
+                                     MIN_STEP,
+                                     MAX_STEP);
+            // Get the command to send to the drone, returned by Steer
             const std::string command{steer.first};
             if (!command.empty())
             {
@@ -255,13 +296,15 @@ int main()
                 {
                     if (doFlight)
                     {
+                        // Send the command to the drone if it is not busy and program is in flight mode
                         tello.SendCommand(command);
                     }
+                    // Output command and set drone as busy
                     std::cout << "Command: " << command << std::endl;
                     busy = true;
                 }
 
-                // draw velocity lines (green for selected red for not selected)
+                // Draw velocity lines (green for selected red for not selected)
                 drawMovement(image, DRONE_POSITION, steer.second);
             }
 
@@ -293,7 +336,7 @@ int main()
 
         // cv::resize(image, resize_image, cv::Size(width, height));
         cv::imshow("CTello Stream", image);
-        // quit on ESC button
+        // Quit on ESC button
         if (waitKey(1) == 27)
         {
             if (doFlight)
