@@ -129,7 +129,7 @@ int main()
     cv::VideoCapture cap(0);
     if (!cap.isOpened())
     {
-        cout << "cannot open camera";
+        cout << "cannot open camera"  << endl;
     }
 
     cv::Rect roi; // Region of Interest
@@ -142,6 +142,18 @@ int main()
     cout << "Image Width: " << width << endl;
     cout << "Image Height: " << height << endl;
 
+    // Output video
+    double fps = cap.get(cv::CAP_PROP_FPS);
+    // Define the codec and video writer objects
+    VideoWriter clean_video("video-output/clean_out.avi",
+                            cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                            fps,
+                            cv::Size(960, 720));
+    VideoWriter video("video-output/out.avi",
+                      cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                      fps,
+                      cv::Size(960, 720));
+
     // create a tracker object
     // Ptr<Tracker> tracker = TrackerKCF::create(); // doesn't scale
     // Ptr<Tracker> tracker = TrackerMIL::create();
@@ -151,23 +163,25 @@ int main()
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
 
     // perform the tracking process
-    printf("To start the tracking process draw box around ROI, press ESC to quit.\n");
+    cout << "To start the tracking process draw box around ROI, press ESC to quit." << endl;
     namedWindow("Video Stream", WINDOW_AUTOSIZE);
     setMouseCallback("Video Stream", onMouse, 0);
 
+    cv::Mat frame1;
     while (true)
     {
 
         // get frame from the video
-        cap >> frame;
+        cap >> frame1;
         // stop the program if no more images
-        if (frame.empty())
+        if (frame1.empty())
         {
             break;
         }
 
-        // frame.copyTo(image);
-        cv::resize(frame, image, cv::Size(960, 720));
+        // Resize the webcam to match drone video size
+        cv::resize(frame1, frame, cv::Size(960, 720));
+        frame.copyTo(image);
 
         // If new object is chosen update roi and initialise tracker
         if (trackObject < 0)
@@ -241,11 +255,20 @@ int main()
 
         // Display image
         cv::Mat resize_image;
+
+        // Write the frame (unedited image) into output file
+        clean_video.write(frame);
+        // Write the image (edited image) into output file
+        video.write(image);
+
         // cv::resize(image, resize_image, cv::Size(width, height));
         cv::imshow("Video Stream", image);
         // quit on ESC button
         if (waitKey(1) == 27)
         {
+            cap.release();
+            clean_video.release();
+            video.release();
             break;
         }
     }

@@ -139,8 +139,8 @@ int main()
         ;
     VideoCapture cap{TELLO_STREAM_URL, CAP_FFMPEG};
     if (!cap.isOpened())
-    {
-        cout << "cannot open camera";
+    {   
+        cout << "cannot open camera" << endl;
         return 0;
     }
 
@@ -154,6 +154,17 @@ int main()
     cout << "Image Width: " << width << endl;
     cout << "Image Height: " << height << endl;
 
+    // Output video
+    double fps = cap.get(cv::CAP_PROP_FPS);
+    VideoWriter clean_video("video-output/clean_out.avi",
+                            cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                            fps,
+                            cv::Size(width, height));
+    VideoWriter video("video-output/out.avi",
+                      cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                      fps,
+                      cv::Size(width, height));
+
     // create a tracker object
     // Ptr<Tracker> tracker = TrackerKCF::create(); // doesn't scale
     // Ptr<Tracker> tracker = TrackerMIL::create();
@@ -163,7 +174,7 @@ int main()
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
 
     // perform the tracking process
-    printf("To start the tracking process draw box around ROI, press ESC to quit.\n");
+    cout << "To start the tracking process draw box around ROI, press ESC to quit." << endl;
     namedWindow("CTello Stream", WINDOW_AUTOSIZE);
     setMouseCallback("CTello Stream", onMouse, 0);
 
@@ -275,6 +286,12 @@ int main()
 
         // Display image
         cv::Mat resize_image;
+
+        // Write the frame (unedited image) into output file
+        clean_video.write(frame);
+        // Write the image (edited image) into output file
+        video.write(image);
+
         // cv::resize(image, resize_image, cv::Size(width, height));
         cv::imshow("CTello Stream", image);
         // quit on ESC button
@@ -286,6 +303,9 @@ int main()
                 while (!(tello.ReceiveResponse()))
                     ;
             }
+            cap.release();
+            clean_video.release();
+            video.release();
             break;
         }
     }
