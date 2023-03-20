@@ -1,15 +1,15 @@
 // #include <stdio.h>
 // #include <unistd.h>
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 #include <optional>
 
 #include <opencv2/core/utility.hpp>
+#include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/tracking.hpp>
 #include <opencv2/tracking/tracking_legacy.hpp>
 #include <opencv2/videoio.hpp>
-#include <opencv2/highgui.hpp>
 
 using namespace cv;
 
@@ -39,16 +39,15 @@ const std::string CLEAN = "video-output/out.avi";
 const std::string DIRTY = "video-output/out_dirty.avi";
 
 /**
- * @brief User draws box around object to track. This triggers tracker to start tracking.
+ * @brief User draws box around object to track. This triggers tracker to start
+ * tracking.
  *
  * @param   event   The event to decide what action to take
  * @param   x       The x coordinate
  * @param   y       The y coordinate
  */
-static void onMouse(int event, int x, int y, int, void *)
-{
-    if (selectObject)
-    {
+static void onMouse(int event, int x, int y, int, void *) {
+    if (selectObject) {
         selection.x = MIN(x, origin.x);
         selection.y = MIN(y, origin.y);
         selection.width = std::abs(x - origin.x);
@@ -57,8 +56,7 @@ static void onMouse(int event, int x, int y, int, void *)
         selection &= cv::Rect(0, 0, image.cols, image.rows);
     }
 
-    switch (event)
-    {
+    switch (event) {
     case cv::EVENT_LBUTTONDOWN:
         origin = cv::Point(x, y);
         selection = cv::Rect(x, y, 0, 0);
@@ -74,61 +72,51 @@ static void onMouse(int event, int x, int y, int, void *)
 }
 
 /**
- * @brief Generates a command as a string based off the drone position and the centre of the ROI around the object being tracked.
+ * @brief Generates a command as a string based off the drone position and the
+ * centre of the ROI around the object being tracked.
  *
  * @param   origin          The position of the drone
- * @param   target          The centre of the ROI around the object being tracked
+ * @param   target          The centre of the ROI around the object being
+ * tracked
  * @param   cm_per_pixel    The number of cms to move per pixel
  * @param   min_step        The minimum number of cms the drone can move
  * @param   max_step        The maximum number of cms the drone can move
- * @return                  A pair containing the `command` as a string and the `velocity` as a point
+ * @return                  A pair containing the `command` as a string and the
+ * `velocity` as a point
  */
 std::pair<std::string, Point2i> Steer(const Point2i &origin,
                                       const Point2i &target,
                                       const float cm_per_pixel,
-                                      const int min_step,
-                                      const int max_step)
-{
+                                      const int min_step, const int max_step) {
     std::string command;
     const Point2i velocity{target - origin};
     // Horizontal difference larger than vertical difference
-    if (abs(velocity.x) > abs(velocity.y))
-    {
+    if (abs(velocity.x) > abs(velocity.y)) {
         // Convert pixel velocity to cm velocity and absolute the value
         int step = abs(static_cast<int>(velocity.x * cm_per_pixel));
-        if (step <= min_step)
-        {
+        if (step <= min_step) {
             // Return an empty command if movement is less than minimum step
             return {"", velocity};
         }
         step = std::min(step, max_step);
         // Return right or left depending on sign of velocity
-        if (velocity.x > 0)
-        {
+        if (velocity.x > 0) {
             command = "right " + std::to_string(step);
-        }
-        else
-        {
+        } else {
             command = "left " + std::to_string(step);
         }
-    }
-    else
-    {
+    } else {
         // Convert pixel velocity to cm velocity and absolute the value
         int step = abs(static_cast<int>(velocity.y * cm_per_pixel));
-        if (step <= min_step)
-        {
+        if (step <= min_step) {
             // Return an empty command if movement is less than minimum step
             return {"", velocity};
         }
         step = std::min(step, max_step);
         // Return up or down depending on sign of velocity
-        if (velocity.y < 0)
-        {
+        if (velocity.y < 0) {
             command = "up " + std::to_string(step);
-        }
-        else
-        {
+        } else {
             command = "down " + std::to_string(step);
         }
     }
@@ -142,23 +130,21 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
  *
  * @param   image       The current image
  * @param   drone_pos   The position of the drone
- * @param   velocity    The movement needed for drone_pos to match the object's position
+ * @param   velocity    The movement needed for drone_pos to match the object's
+ * position
  */
-void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
-{
+void drawMovement(Mat &image, const Point2i &drone_pos,
+                  const Point2i &velocity) {
     // Define two points for the horizontal and vertical velocity values
     const cv::Point2i x_pos(drone_pos.x + velocity.x, drone_pos.y);
     const cv::Point2i y_pos(drone_pos.x, drone_pos.y + velocity.y);
     /// Draw the arrows, colour depends on which value is larger
     // Green for larger (movement drone has selected)
     // Red for smaller (movement not selected)
-    if (abs(velocity.x) > abs(velocity.y))
-    {
+    if (abs(velocity.x) > abs(velocity.y)) {
         cv::arrowedLine(image, drone_pos, x_pos, {0, 255, 0});
         cv::arrowedLine(image, drone_pos, y_pos, {0, 0, 255});
-    }
-    else
-    {
+    } else {
         cv::arrowedLine(image, drone_pos, x_pos, {0, 0, 255});
         cv::arrowedLine(image, drone_pos, y_pos, {0, 255, 0});
     }
@@ -171,41 +157,34 @@ void drawMovement(Mat &image, const Point2i &drone_pos, const Point2i &velocity)
  * @param dirty_default The default name for the dirty output video file
  */
 void renameOutputs(const std::string clean_default,
-                   const std::string dirty_default)
-{
+                   const std::string dirty_default) {
     std::string output_name;
-    std::cout << "\nSpecify output filename for video, if none specified then default will be used, this will overwrite anything saved to the same filename" << std::endl;
+    std::cout << "\nSpecify output filename for video, if none specified then "
+                 "default will be used, this will overwrite anything saved to "
+                 "the same filename"
+              << std::endl;
     std::cout << "Output filename: ";
     getline(std::cin, output_name);
-    if (!output_name.empty())
-    {
+    if (!output_name.empty()) {
         std::string clean_name = "video-output/" + output_name + ".avi";
         std::string dirty_name = "video-output/" + output_name + "_dirty.avi";
-        if (rename(clean_default.c_str(), clean_name.c_str()) != 0)
-        {
+        if (rename(clean_default.c_str(), clean_name.c_str()) != 0) {
             std::cout << "Error moving file" << std::endl;
-        }
-        else
-        {
+        } else {
             std::cout << "File saved successfully" << std::endl;
         }
-        if (rename(dirty_default.c_str(), dirty_name.c_str()) != 0)
-        {
+        if (rename(dirty_default.c_str(), dirty_name.c_str()) != 0) {
             std::cout << "Error moving file" << std::endl;
-        }
-        else
-        {
+        } else {
             std::cout << "File saved successfully" << std::endl;
         }
     }
 }
 
-int main()
-{
+int main() {
     // Set input video
     cv::VideoCapture cap(0);
-    if (!cap.isOpened())
-    {
+    if (!cap.isOpened()) {
         std::cout << "cannot open camera" << std::endl;
     }
 
@@ -223,14 +202,11 @@ int main()
     double fps = cap.get(cv::CAP_PROP_FPS);
     /// Define the codec and video writer objects
     // `clean_video` - will save the original frame
-    // `video` - will save the frame with bounding boxes and other items drawn, for evaluation
-    VideoWriter clean_video(CLEAN,
-                            cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                            fps,
-                            cv::Size(960, 720));
-    VideoWriter video(DIRTY,
-                      cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                      fps,
+    // `video` - will save the frame with bounding boxes and other items drawn,
+    // for evaluation
+    VideoWriter clean_video(CLEAN, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                            fps, cv::Size(960, 720));
+    VideoWriter video(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
                       cv::Size(960, 720));
 
     // create a tracker object
@@ -239,24 +215,25 @@ int main()
     // Ptr<Tracker> tracker = cv::legacy::TrackerMedianFlow::create();
     // Ptr<Tracker> tracker = cv::legacy::TrackerMOSSE:create();
     // Ptr<Tracker> tracker = cv::legacy::TrackerTLD:create();
-    cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create(); // seems the fastest
+    cv::Ptr<cv::Tracker> tracker =
+        cv::TrackerCSRT::create(); // seems the fastest
 
     // Show information
-    std::cout << "To start the tracking process draw box around ROI, press ESC to quit." << std::endl;
+    std::cout << "To start the tracking process draw box around ROI, press ESC "
+                 "to quit."
+              << std::endl;
 
     // Create window and mouse callback for ROI selection
     namedWindow("Video Stream", WINDOW_AUTOSIZE);
     setMouseCallback("Video Stream", onMouse, 0);
 
     cv::Mat frame1;
-    while (true)
-    {
+    while (true) {
 
         // Get frame from the video
         cap >> frame1;
         // Stop the program if no more images
-        if (frame1.empty())
-        {
+        if (frame1.empty()) {
             break;
         }
 
@@ -266,8 +243,7 @@ int main()
         frame.copyTo(image);
 
         // If new object is chosen update roi and initialise tracker
-        if (trackObject < 0)
-        {
+        if (trackObject < 0) {
             roi = selection;
             // initialize the tracker
             tracker->init(image, roi);
@@ -275,18 +251,20 @@ int main()
         }
 
         // Update tracking if roi is selected
-        if (roi.width > 0 && roi.height > 0)
-        {
+        if (roi.width > 0 && roi.height > 0) {
             // update the tracking result
             tracker->update(image, roi);
 
             // TODO:
             // Scaling of roi based on previous roi(s), using interpolation
-            // - If there is a large change we wouldn't really expect that so this becomes smaller
-            // - Hopefully improve performance for less accurately tracked objects
+            // - If there is a large change we wouldn't really expect that so
+            // this becomes smaller
+            // - Hopefully improve performance for less accurately tracked
+            // objects
             // - Smooth variations in bounding box
             // Notes:
-            // Scaling seems good with object with unique colour and shape, i.e. mclaren hat
+            // Scaling seems good with object with unique colour and shape, i.e.
+            // mclaren hat
 
             // Get centre of roi
             Point2i object_centre = (roi.br() + roi.tl()) / 2;
@@ -296,15 +274,11 @@ int main()
             circle(image, object_centre, 3, cv::Scalar(255, 0, 0));
 
             // Call Steer and store the returned pair object {command, velocity}
-            const auto steer = Steer(DRONE_POSITION,
-                                     object_centre,
-                                     CM_PER_PIXEL,
-                                     MIN_STEP,
-                                     MAX_STEP);
+            const auto steer = Steer(DRONE_POSITION, object_centre,
+                                     CM_PER_PIXEL, MIN_STEP, MAX_STEP);
             // Get the command to send to the drone, returned by Steer
             const std::string command{steer.first};
-            if (!command.empty())
-            {
+            if (!command.empty()) {
                 std::cout << "Command: " << command << std::endl;
 
                 // Draw velocity lines (green for selected red for not selected)
@@ -314,7 +288,8 @@ int main()
             // TODO:
             // Forwards/backwards movement
             // - Drone wants to keep ROI roughly the same size
-            // - Base size will be initial size defined +/- padding, to account for small variations
+            // - Base size will be initial size defined +/- padding, to account
+            // for small variations
             // - Move drone backwards if ROI gets larger
             // - Move drone forwards if ROI gets smaller
             // Notes:
@@ -323,8 +298,7 @@ int main()
         }
 
         // Invert colours in the selection area
-        if (selectObject && selection.width > 0 && selection.height > 0)
-        {
+        if (selectObject && selection.width > 0 && selection.height > 0) {
             cv::Mat roi(image, selection);
             bitwise_not(roi, roi);
         }
@@ -340,8 +314,7 @@ int main()
         // cv::resize(image, resize_image, cv::Size(width, height));
         cv::imshow("Video Stream", image);
         // Quit on ESC button
-        if (waitKey(1) == 27)
-        {
+        if (waitKey(1) == 27) {
             cv::destroyAllWindows();
             renameOutputs(CLEAN, DIRTY);
             cap.release();
