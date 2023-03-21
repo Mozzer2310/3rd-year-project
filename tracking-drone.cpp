@@ -39,6 +39,10 @@ const int MAX_STEP = 60;
 // default output filenames
 const std::string CLEAN = "video-output/out.avi";
 const std::string DIRTY = "video-output/out_dirty.avi";
+// starting size of roi
+cv::Size roi_size;
+// Acceptable range multiplier of roi size
+const float ROI_SCALE = 0.2;
 
 /**
  * @brief User draws box around object to track. This triggers tracker to start
@@ -124,6 +128,40 @@ std::pair<std::string, Point2i> Steer(const Point2i &origin,
         }
     }
     return {command, velocity};
+}
+
+/**
+ * @brief Generates a command to move the drone longitudinally, based on the
+ * size of the ROI compared to the initial size of the ROI
+ *
+ * @param   original_size   The size of the ROI when it was initialised
+ * @param   target_size     The size of the target object in the current frame
+ * @param   min_step        The minimum number of cms the drone can move
+ * @param   roi_scale       The value to define the acceptable scale 1 +/-
+ * `roi_scale`
+ * @return                  A `string` containing the command to give the drone
+ */
+std::string LongitudinalMove(const cv::Size &original_size,
+                             const cv::Size &target_size, const int min_step,
+                             const float roi_scale) {
+    std::string command;
+    // The average ratio of height and width of the two Size objects
+    float ratio =
+        ((static_cast<float>(target_size.width) / original_size.width) +
+         ((static_cast<float>(target_size.height)) / original_size.height)) /
+        2;
+
+    /// Move backwards if target is > 1.2 times the initial size
+    // Move forwards if target is < 0.8 times the initial size
+    // Don't move longitudinally
+    if (ratio > 1 + roi_scale) {
+        command = "back " + std::to_string(min_step);
+    } else if (ratio < 1 - roi_scale) {
+        command = "forward " + std::to_string(min_step);
+    } else {
+        command = "";
+    }
+    return command;
 }
 
 /**
@@ -270,6 +308,8 @@ int main() {
         // If new object is chosen update roi and initialise tracker
         if (trackObject < 0) {
             roi = selection;
+            roi_size = roi.size();
+            std::cout << "ROI size: " << roi_size << std::endl;
             // initialize the tracker
             tracker->init(image, roi);
             trackObject = 1; // Don't set up again, unless user selects new ROI
@@ -302,33 +342,35 @@ int main() {
             const auto steer = Steer(DRONE_POSITION, object_centre,
                                      CM_PER_PIXEL, MIN_STEP, MAX_STEP);
             // Get the command to send to the drone, returned by Steer
-            const std::string command{steer.first};
+            std::string command{steer.first};
             if (!command.empty()) {
                 if (!busy) {
                     if (doFlight) {
                         // Send the command to the drone if it is not busy and
-                        // program is in flight mode
+                        // program is in flight mode, set drone as busy
                         tello.SendCommand(command);
+                        busy = true;
                     }
-                    // Output command and set drone as busy
                     std::cout << "Command: " << command << std::endl;
-                    busy = true;
                 }
 
                 // Draw velocity lines (green for selected red for not selected)
                 drawMovement(image, DRONE_POSITION, steer.second);
+            } else{
+                command =
+                    LongitudinalMove(roi_size, roi.size(), MIN_STEP, ROI_SCALE);
+                if (!command.empty()) {
+                    if (!busy) {
+                    if (doFlight) {
+                        // Send the command to the drone if it is not busy and
+                        // program is in flight mode, set drone as busy
+                        tello.SendCommand(command);
+                        busy = true;
+                    }
+                    std::cout << "Command: " << command << std::endl;
+                }
+                }
             }
-
-            // TODO:
-            // Forwards/backwards movement
-            // - Drone wants to keep ROI roughly the same size
-            // - Base size will be initial size defined +/- padding, to account
-            // for small variations
-            // - Move drone backwards if ROI gets larger
-            // - Move drone forwards if ROI gets smaller
-            // Notes:
-            // - Set a cm value based on scaling factor difference
-            // - Will need min value to move from so drone isn't jittery
         }
 
         // Invert colours in the selection area
