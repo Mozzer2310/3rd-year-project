@@ -332,6 +332,8 @@ int main() {
                 }
             }
         }
+        // TODO:
+        // Set max size of ROI, too large is not useful/intial ROI size would be too large
 
         // Invert colours in the selection area
         if (selectObject && selection.width > 0 && selection.height > 0) {
