@@ -4,7 +4,7 @@ An Object Detection and Tracking System for Drone Navigation using a RYZE Tello 
 ## Requirements
 - CTello - Available at: https://github.com/carlospzlz/ctello
 - CMake (Developed using CMake 3.25)
-- OpenCV (Developed using OpenCV 4.6 with opencv_contrib installed) 
+- OpenCV (Developed using OpenCV 4.6 with `opencv_contrib` installed) 
 
 ## Compilation
 ### Full System

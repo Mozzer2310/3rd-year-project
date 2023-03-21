@@ -357,6 +357,7 @@ int main() {
                 // Draw velocity lines (green for selected red for not selected)
                 drawMovement(image, DRONE_POSITION, steer.second);
             } else{
+                // If no planar movement needed check for longitudinal
                 command =
                     LongitudinalMove(roi_size, roi.size(), MIN_STEP, ROI_SCALE);
                 if (!command.empty()) {
