@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <deque>
 #include <iostream>
+#include <list>
 #include <optional>
 
 #include "ctello.h"
@@ -37,12 +39,18 @@ const int MIN_STEP = 20;
 // Maximum centimeters the drone can move
 const int MAX_STEP = 60;
 // default output filenames
-const std::string CLEAN = "video-output/out.avi";
-const std::string DIRTY = "video-output/out_dirty.avi";
+const std::string CLEAN = "../video-output/out.avi";
+const std::string DIRTY = "../video-output/out_dirty.avi";
 // starting size of roi
 cv::Size roi_size;
+// Multiplier for max size of roi
+const float ROI_MAX = 0.7;
+// Multiplier for min size of roi
+const float ROI_MIN = 0.05;
 // Acceptable range multiplier of roi size
 const float ROI_SCALE = 0.2;
+// Datastructure that holds the previous roi sizes
+std::deque<int> prevs_roi_size;
 
 /**
  * @brief User draws box around object to track. This triggers tracker to start
@@ -207,8 +215,8 @@ void renameOutputs(const std::string clean_default,
     std::cout << "Output filename: ";
     getline(std::cin, output_name);
     if (!output_name.empty()) {
-        std::string clean_name = "video-output/" + output_name + ".avi";
-        std::string dirty_name = "video-output/" + output_name + "_dirty.avi";
+        std::string clean_name = "../video-output/" + output_name + ".avi";
+        std::string dirty_name = "../video-output/" + output_name + "_dirty.avi";
         if (rename(clean_default.c_str(), clean_name.c_str()) != 0) {
             std::cout << "Error moving file" << std::endl;
         } else {
@@ -219,6 +227,84 @@ void renameOutputs(const std::string clean_default,
         } else {
             std::cout << "File saved successfully" << std::endl;
         }
+    }
+}
+
+/**
+ * @brief Check if the defined ROI is within the allowed size range.
+ *
+ * @param   roi_size      The size of the current defined ROI
+ * @param   frame_width   The width of the frame
+ * @param   frame_height  The height of the frame
+ * @param   roi_min       The multiplier to calculate minimum roi size
+ * @param   roi_max       The multiplier to calculate maximum roi size
+ * @return                `true` - When the defined ROI is of an acceptable size
+ * @return                `false` - When the defined ROI is not of an acceptable
+ * size
+ */
+bool checkROI(cv::Size roi_size, int frame_width, int frame_height,
+              const float roi_min, const float roi_max) {
+    if (roi_size.width > 0.7 * frame_width or
+        roi_size.height > 0.7 * frame_height) {
+        std::cout << "ROI too large, define area again" << std::endl;
+        return false;
+    } else if (roi_size.width < 0.05 * frame_width or
+               roi_size.height < 0.05 * frame_height) {
+        std::cout << "ROI too small, define area again" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+/**
+ * @brief Measures the rate of change of the roi, to determine if sudden change
+ * occurs.
+ *
+ * @param   roi     `cv::Rect` the current roi
+ * @return          `true` - When the rate of change is safe
+ * @return          `false` - When the rate of change is unsafe
+ */
+bool rocCheck(cv::Rect roi) {
+    prevs_roi_size.push_front(roi.area());
+    if (prevs_roi_size.size() > 20) {
+        prevs_roi_size.pop_back();
+        float ratios[19];
+        for (int i = 0; i < prevs_roi_size.size() - 1; i++) {
+            ratios[i] = static_cast<float>(prevs_roi_size.at(i)) /
+                        prevs_roi_size.at(i + 1);
+        }
+        float ratio_avg = 0;
+        for (float n : ratios) {
+            ratio_avg = ratio_avg + n;
+        }
+        ratio_avg = ratio_avg / 19;
+        if (!(ratio_avg < 1.1 and ratio_avg > 0.9)) {
+            std::cout << "Rate of Change is UNSAFE" << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * @brief Function to safely close windows and release OpenCV objects
+ *
+ * @param   cap             `cv::VideoCapture` object
+ * @param   video_writers   List of `cv::VideoWriter` objects
+ * @param   tello           Drone object
+ */
+void exitSafe(cv::VideoCapture cap, std::list<cv::VideoWriter> video_writers,
+              ctello::Tello &tello) {
+    cv::destroyAllWindows();
+    if (doFlight) {
+        tello.SendCommand("land");
+        while (!(tello.ReceiveResponse()))
+            ;
+    }
+    renameOutputs(CLEAN, DIRTY);
+    cap.release();
+    for (auto cap : video_writers) {
+        cap.release();
     }
 }
 
@@ -255,21 +341,14 @@ int main() {
     // `clean_video` - will save the original frame
     // `video` - will save the frame with bounding boxes and other items drawn,
     // for evaluation
-    VideoWriter clean_video("video-output/clean_out.avi",
-                            cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
-                            cv::Size(width, height));
-    VideoWriter video("video-output/out.avi",
-                      cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
+    VideoWriter clean_video(CLEAN, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                            fps, cv::Size(width, height));
+    VideoWriter video(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
                       cv::Size(width, height));
+    std::list<cv::VideoWriter> videoWriters = {clean_video, video};
 
-    // create a tracker object
-    // Ptr<Tracker> tracker = TrackerKCF::create(); // doesn't scale
-    // Ptr<Tracker> tracker = TrackerMIL::create();
-    // Ptr<Tracker> tracker = cv::legacy::TrackerMedianFlow::create();
-    // Ptr<Tracker> tracker = cv::legacy::TrackerMOSSE:create();
-    // Ptr<Tracker> tracker = cv::legacy::TrackerTLD:create();
-    cv::Ptr<cv::Tracker> tracker =
-        cv::TrackerCSRT::create(); // seems the fastest
+    // create a CSRT tracker object
+    cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create();
 
     // Show information
     std::cout << "To start the tracking process draw box around ROI, press ESC "
@@ -292,6 +371,7 @@ int main() {
         cap >> frame;
         // Stop the program if no more images
         if (frame.empty()) {
+            exitSafe(cap, videoWriters, tello);
             break;
         }
 
@@ -309,10 +389,20 @@ int main() {
         if (trackObject < 0) {
             roi = selection;
             roi_size = roi.size();
-            std::cout << "ROI size: " << roi_size << std::endl;
-            // initialize the tracker
-            tracker->init(image, roi);
-            trackObject = 1; // Don't set up again, unless user selects new ROI
+
+            // Initialize the tracker if ROI is an acceptable size, otherwise
+            // reset values
+            if (checkROI(roi_size, width, height, ROI_MIN, ROI_MAX)) {
+                // initialize the tracker
+                tracker->init(image, roi);
+                // Don't set up again, unless user selects new ROI
+                trackObject = 1;
+                // Clear the roi size queue
+                prevs_roi_size.clear();
+            } else {
+                trackObject = 0;
+                roi = cv::Rect();
+            }
         }
 
         // Update tracking if roi is selected
@@ -320,16 +410,10 @@ int main() {
             // update the tracking result
             tracker->update(image, roi);
 
-            // TODO:
-            // Scaling of roi based on previous roi(s), using interpolation
-            // - If there is a large change we wouldn't really expect that so
-            // this becomes smaller
-            // - Hopefully improve performance for less accurately tracked
-            // objects
-            // - Smooth variations in bounding box
-            // Notes:
-            // Scaling seems good with object with unique colour and shape, i.e.
-            // mclaren hat
+            if (!rocCheck(roi)) {
+                exitSafe(cap, videoWriters, tello);
+                break;
+            }
 
             // Get centre of roi
             Point2i object_centre = (roi.br() + roi.tl()) / 2;
@@ -356,25 +440,23 @@ int main() {
 
                 // Draw velocity lines (green for selected red for not selected)
                 drawMovement(image, DRONE_POSITION, steer.second);
-            } else{
+            } else {
                 // If no planar movement needed check for longitudinal
                 command =
                     LongitudinalMove(roi_size, roi.size(), MIN_STEP, ROI_SCALE);
                 if (!command.empty()) {
                     if (!busy) {
-                    if (doFlight) {
-                        // Send the command to the drone if it is not busy and
-                        // program is in flight mode, set drone as busy
-                        tello.SendCommand(command);
-                        busy = true;
+                        if (doFlight) {
+                            // Send the command to the drone if it is not busy
+                            // and program is in flight mode, set drone as busy
+                            tello.SendCommand(command);
+                            busy = true;
+                        }
+                        std::cout << "Command: " << command << std::endl;
                     }
-                    std::cout << "Command: " << command << std::endl;
-                }
                 }
             }
         }
-        // TODO:
-        // Set max size of ROI, too large is not useful/intial ROI size would be too large
 
         // Invert colours in the selection area
         if (selectObject && selection.width > 0 && selection.height > 0) {
@@ -394,16 +476,7 @@ int main() {
         cv::imshow("CTello Stream", image);
         // Quit on ESC button
         if (waitKey(1) == 27) {
-            cv::destroyAllWindows();
-            if (doFlight) {
-                tello.SendCommand("land");
-                while (!(tello.ReceiveResponse()))
-                    ;
-            }
-            renameOutputs(CLEAN, DIRTY);
-            cap.release();
-            clean_video.release();
-            video.release();
+            exitSafe(cap, videoWriters, tello);
             break;
         }
     }
