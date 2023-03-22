@@ -327,6 +327,8 @@ int main() {
 
     // create a CSRT tracker object
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create();
+    // Ptr<cv::Tracker> tracker =
+        // legacy::upgradeTrackingAPI(cv::legacy::TrackerMedianFlow::create());
 
     // Show information
     std::cout << "To start the tracking process draw box around ROI, press ESC "
@@ -372,6 +374,8 @@ int main() {
                 trackObject = 0;
                 roi = cv::Rect();
             }
+            // TODO:
+            // Check that ROI is roughly same aspect ratio
         }
 
         // Update tracking if roi is selected
