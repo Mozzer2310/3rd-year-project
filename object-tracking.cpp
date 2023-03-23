@@ -400,8 +400,6 @@ int main(int argc, char *argv[]) {
                 trackObject = 0;
                 roi = cv::Rect();
             }
-            // TODO:
-            // Check that ROI is roughly same aspect ratio
         }
 
         // Update tracking if roi is selected
