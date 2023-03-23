@@ -9,8 +9,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/tracking.hpp>
-#include <opencv2/tracking/tracking_legacy.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/core/utils/filesystem.hpp>
 
 const char *const TELLO_STREAM_URL{"udp://0.0.0.0:11111"};
 
@@ -361,6 +361,8 @@ int main(int argc, char *argv[]) {
 
     // Output video
     double fps = cap.get(cv::CAP_PROP_FPS);
+    // Create video output directory if it doesnt exist
+    cv::utils::fs::createDirectory("video-output");
     /// Define the codec and video writer objects
     // `clean_video` - will save the original frame
     // `video` - will save the frame with bounding boxes and other items drawn,
