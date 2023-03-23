@@ -51,6 +51,8 @@ const float ROI_MIN = 0.05;
 const float ROI_SCALE = 0.2;
 // Datastructure that holds the previous roi sizes
 std::deque<int> prevs_roi_size;
+// Save the video output with overlay or not
+bool saveDirty = false;
 
 /**
  * @brief User draws box around object to track. This triggers tracker to start
@@ -216,16 +218,19 @@ void renameOutputs(const std::string clean_default,
     getline(std::cin, output_name);
     if (!output_name.empty()) {
         std::string clean_name = "../video-output/" + output_name + ".avi";
-        std::string dirty_name = "../video-output/" + output_name + "_dirty.avi";
+        std::string dirty_name =
+            "../video-output/" + output_name + "_dirty.avi";
         if (rename(clean_default.c_str(), clean_name.c_str()) != 0) {
             std::cout << "Error moving file" << std::endl;
         } else {
             std::cout << "File saved successfully" << std::endl;
         }
-        if (rename(dirty_default.c_str(), dirty_name.c_str()) != 0) {
-            std::cout << "Error moving file" << std::endl;
-        } else {
-            std::cout << "File saved successfully" << std::endl;
+        if (saveDirty) {
+            if (rename(dirty_default.c_str(), dirty_name.c_str()) != 0) {
+                std::cout << "Error moving file" << std::endl;
+            } else {
+                std::cout << "File saved successfully" << std::endl;
+            }
         }
     }
 }
@@ -308,7 +313,26 @@ void exitSafe(cv::VideoCapture cap, std::list<cv::VideoWriter> video_writers,
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+    // Check command line arguments and set variables based on these
+    if (argc == 2) {
+        std::cout << argv[1] << std::endl;
+        if (strcmp(argv[1], "eval") == 0 or strcmp(argv[1], "evaluate") == 0) {
+            saveDirty = true;
+        } else {
+            std::cout << "Incorrect usage, please use: ";
+            std::cout << "./tracking-drone eval OR ./tracking-drone evaluate"
+                      << std::endl;
+            std::cout << "In order to save video with overlays, video overlays "
+                         "will not be saved";
+        }
+    } else if (argc > 2) {
+        std::cout << "Incorrect usage, please use: ";
+        std::cout << "./tracking-drone OR ./tracking-drone [OPTION]"
+                  << std::endl;
+        return 0;
+    }
+
     // Instantiate tello object and bind to connected drone
     ctello::Tello tello{};
     if (!tello.Bind()) {
@@ -341,11 +365,16 @@ int main() {
     // `clean_video` - will save the original frame
     // `video` - will save the frame with bounding boxes and other items drawn,
     // for evaluation
+    std::list<cv::VideoWriter> videoWriters;
+    VideoWriter video;
     VideoWriter clean_video(CLEAN, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
                             fps, cv::Size(width, height));
-    VideoWriter video(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
-                      cv::Size(width, height));
-    std::list<cv::VideoWriter> videoWriters = {clean_video, video};
+    videoWriters.push_front(clean_video);
+    if (saveDirty) {
+        VideoWriter video(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                          fps, cv::Size(960, 720));
+        videoWriters.push_front(video);
+    }
 
     // create a CSRT tracker object
     cv::Ptr<cv::Tracker> tracker = cv::TrackerCSRT::create();
@@ -471,8 +500,10 @@ int main() {
 
         // Write the frame (unedited image) into output file
         clean_video.write(frame);
-        // Write the image (edited image) into output file
-        video.write(image);
+        // Write the image (edited image) into output file, if option selected
+        if (saveDirty) {
+            video.write(image);
+        }
 
         // cv::resize(image, resize_image, cv::Size(width, height));
         cv::imshow("CTello Stream", image);
