@@ -373,8 +373,8 @@ int main(int argc, char *argv[]) {
                             fps, cv::Size(width, height));
     videoWriters.push_front(clean_video);
     if (saveDirty) {
-        VideoWriter video(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                          fps, cv::Size(960, 720));
+        video.open(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
+                          fps, cv::Size(width, height));
         videoWriters.push_front(video);
     }
 
