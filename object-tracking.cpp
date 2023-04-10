@@ -5,11 +5,11 @@
 #include <optional>
 
 #include <opencv2/core/utility.hpp>
+#include <opencv2/core/utils/filesystem.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/tracking.hpp>
 #include <opencv2/videoio.hpp>
-#include <opencv2/core/utils/filesystem.hpp>
 
 using namespace cv;
 
@@ -350,8 +350,8 @@ int main(int argc, char *argv[]) {
                             fps, cv::Size(width, height));
     videoWriters.push_front(clean_video);
     if (saveDirty) {
-        video.open(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'),
-                          fps, cv::Size(width, height));
+        video.open(DIRTY, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), fps,
+                   cv::Size(width, height));
         videoWriters.push_front(video);
     }
 
@@ -437,6 +437,13 @@ int main(int argc, char *argv[]) {
                     LongitudinalMove(roi_size, roi.size(), MIN_STEP, ROI_SCALE);
                 if (!command.empty()) {
                     std::cout << "Command: " << command << std::endl;
+
+                    // Draw forwards backwards movement
+                    if (command.find("forward") != std::string::npos) {
+                        rectangle(image, roi, cv::Scalar(0, 255, 0), 2, 1);
+                    } else if (command.find("back") != std::string::npos) {
+                        rectangle(image, roi, cv::Scalar(0, 0, 255), 2, 1);
+                    }
                 }
             }
         }

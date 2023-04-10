@@ -485,6 +485,13 @@ int main(int argc, char *argv[]) {
                         }
                         std::cout << "Command: " << command << std::endl;
                     }
+
+                    // Draw forwards backwards movement
+                    if (command.find("forward") != std::string::npos) {
+                        rectangle(image, roi, cv::Scalar(0, 255, 0), 2, 1);
+                    } else if (command.find("back") != std::string::npos) {
+                        rectangle(image, roi, cv::Scalar(0, 0, 255), 2, 1);
+                    }
                 }
             }
         }
